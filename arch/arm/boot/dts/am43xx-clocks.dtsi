@@ -612,6 +612,15 @@
 		reg = <0x4230>;
 	};
 
+	clkout_32k_mux_ck: clkout_32k_mux_ck {
+		#clock-cells = <0>;
+		compatible = "mux-clock";
+		clocks = <&clk_32k_tpm_ck>, <&clk_32768_ck>;
+		reg = <0x4100>;
+		bit-mask = <0x1>;
+		bit-shift = <24>;
+	};
+
 	synctimer_32kclk: synctimer_32kclk {
 		#clock-cells = <0>;
 		compatible = "ti,gate-clock";

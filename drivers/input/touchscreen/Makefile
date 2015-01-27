@@ -6,6 +6,7 @@
 
 wm97xx-ts-y := wm97xx-core.o
 
+obj-$(CONFIG_TOUCHSCREEN_FT5X06)	+= ft5x06_ts.o
 obj-$(CONFIG_TOUCHSCREEN_CTW6120)	+= ctw6120.o
 obj-$(CONFIG_TOUCHSCREEN_88PM860X)	+= 88pm860x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_AD7877)	+= ad7877.o
