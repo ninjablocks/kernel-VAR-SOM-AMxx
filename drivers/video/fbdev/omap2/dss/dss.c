@@ -168,7 +168,7 @@ void dss_ctrl_pll_enable(int pll_id, bool enable)
 		return;
 
 	regmap_update_bits(dss.syscon, CTRL_CORE_DSS_PLL_CONTROL_OFF,
-		1 << pll_id, !enable);
+		1 << pll_id, (!enable) << pll_id);
 }
 
 void dss_ctrl_hdmi_pll_enable(bool enable)
@@ -177,7 +177,7 @@ void dss_ctrl_hdmi_pll_enable(bool enable)
 		return;
 
 	regmap_update_bits(dss.syscon, CTRL_CORE_DSS_PLL_CONTROL_OFF,
-		1 << 2, !enable);
+		1 << 2, (!enable) << 2);
 }
 
 void dss_ctrl_pll_set_control_mux(int pll_id, enum omap_channel channel)
@@ -240,7 +240,7 @@ void dss_ctrl_pll_set_control_mux(int pll_id, enum omap_channel channel)
 	}
 
 	regmap_update_bits(dss.syscon, CTRL_CORE_DSS_PLL_CONTROL_OFF,
-		0x3 << shift, val);
+		0x3 << shift, val << shift);
 }
 
 void dss_sdi_init(int datapairs)
@@ -1075,6 +1075,7 @@ static int __init omap_dsshw_probe(struct platform_device *pdev)
 		goto err_setup_clocks;
 
 	pm_runtime_enable(&pdev->dev);
+	pm_runtime_irq_safe(&pdev->dev);
 
 	r = dss_runtime_get();
 	if (r)

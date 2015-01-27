@@ -300,14 +300,6 @@ static int tps65910_rtc_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_OF
-static const struct of_device_id tps65910_rtc_dt_match[] = {
-	{ .compatible = "ti,tps65910-rtc", },
-	{},
-};
-MODULE_DEVICE_TABLE(of, tps65910_rtc_dt_match);
-#endif
-
 #ifdef CONFIG_PM_SLEEP
 static int tps65910_rtc_suspend(struct device *dev)
 {
@@ -338,9 +330,6 @@ static struct platform_driver tps65910_rtc_driver = {
 		.owner	= THIS_MODULE,
 		.name	= "tps65910-rtc",
 		.pm	= &tps65910_rtc_pm_ops,
-#ifdef CONFIG_OF
-		.of_match_table	= of_match_ptr(tps65910_rtc_dt_match),
-#endif
 	},
 };
 

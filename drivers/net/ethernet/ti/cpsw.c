@@ -757,6 +757,14 @@ requeue:
 static irqreturn_t cpsw_interrupt(int irq, void *dev_id)
 {
 	struct cpsw_priv *priv = dev_id;
+	int value = irq - priv->irqs_table[0];
+
+	/* NOTICE: Ending IRQ here. The trick with the 'value' variable above
+	 * is to make sure we will always write the correct value to the EOI
+	 * register. Namely 0 for RX_THRESH Interrupt, 1 for RX Interrupt, 2
+	 * for TX Interrupt and 3 for MISC Interrupt.
+	 */
+	cpdma_ctlr_eoi(priv->dma, value);
 
 	__raw_writel(0, &priv->wr_regs->rx_en);
 	if (priv->irq_enabled) {
@@ -813,13 +821,14 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
 	struct cpsw_priv	*priv = napi_to_priv(napi);
 	int			num_rx;
 
+	cpdma_chan_process(priv->txch, 128);
+
 	num_rx = cpdma_chan_process(priv->rxch, budget);
 	if (num_rx < budget) {
 		struct cpsw_priv *prim_cpsw;
 
 		napi_complete(napi);
 		__raw_writel(0xFF, &priv->wr_regs->rx_en);
-		cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
 		prim_cpsw = cpsw_get_slave_priv(priv, 0);
 		if (!prim_cpsw->irq_enabled) {
 			prim_cpsw->irq_enabled = true;
@@ -920,7 +929,7 @@ static void _cpsw_adjust_link(struct cpsw_slave *slave,
 		/* disable forwarding */
 		cpsw_ale_control_set(priv->ale, slave_port,
 				     ALE_PORT_STATE,
-				     priv->port_state[slave_port]);
+				     ALE_PORT_STATE_DISABLE);
 	}
 
 	if (mac_control != slave->mac_control) {
@@ -1431,8 +1440,6 @@ static int cpsw_ndo_open(struct net_device *ndev)
 	napi_enable(&priv->napi_tx);
 	cpdma_ctlr_start(priv->dma);
 	cpsw_intr_enable(priv);
-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
 
 	prim_cpsw = cpsw_get_slave_priv(priv, 0);
 	if (!prim_cpsw->irq_enabled) {
@@ -1843,6 +1850,109 @@ static int cpsw_switch_config_ioctl(struct net_device *ndev,
 			ret = -EINVAL;
 		}
 		break;
+	case CONFIG_SWITCH_GET_PORT_VLAN_CONFIG:
+	{
+		u32 __iomem *port_vlan_reg;
+		u32 port_vlan;
+
+		switch (config.port) {
+		case 0:
+			port_vlan_reg = &priv->host_port_regs->port_vlan;
+			port_vlan = readl(port_vlan_reg);
+			break;
+		case 1:
+		case 2:
+		{
+			int slave = config.port - 1;
+			if (priv->version == CPSW_VERSION_1) {
+				port_vlan = slave_read(priv->slaves + slave,
+						       CPSW1_PORT_VLAN);
+			} else {
+				port_vlan = slave_read(priv->slaves + slave,
+						       CPSW2_PORT_VLAN);
+			}
+			break;
+		}
+		default:
+			dev_err(priv->dev, "Invalid Arguments\n");
+			ret = -EINVAL;
+			break;
+		}
+
+		if (!ret) {
+			config.vid = port_vlan & 0xfff;
+			config.vlan_cfi = port_vlan & BIT(12) ? true : false;
+			config.prio = (port_vlan >> 13) & 0x7;
+			ret = copy_to_user(ifrq->ifr_data, &config,
+					   sizeof(config));
+		}
+		break;
+	}
+	case CONFIG_SWITCH_SET_PORT_VLAN_CONFIG:
+	{
+		void __iomem *port_vlan_reg;
+		u32 port_vlan;
+
+		port_vlan = config.vid;
+		port_vlan |= config.vlan_cfi ? BIT(12) : 0;
+		port_vlan |= (config.prio & 0x7) << 13;
+
+		switch (config.port) {
+		case 0:
+			port_vlan_reg = &priv->host_port_regs->port_vlan;
+			writel(port_vlan, port_vlan_reg);
+			break;
+		case 1:
+		case 2:
+		{
+			int slave = config.port - 1;
+			if (priv->version == CPSW_VERSION_1) {
+				slave_write(priv->slaves + slave, port_vlan,
+					    CPSW1_PORT_VLAN);
+			} else {
+				slave_write(priv->slaves + slave, port_vlan,
+					    CPSW2_PORT_VLAN);
+			}
+			break;
+		}
+		default:
+			dev_err(priv->dev, "Invalid Arguments\n");
+			ret = -EINVAL;
+			break;
+		}
+
+		break;
+	}
+	case CONFIG_SWITCH_RATELIMIT:
+	{
+		if (config.port > 2) {
+			dev_err(priv->dev, "Invalid Arguments\n");
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = cpsw_ale_control_set(priv->ale, 0, ALE_RATE_LIMIT_TX,
+					   !!config.direction);
+		if (ret) {
+			dev_err(priv->dev, "CPSW_ALE control set failed");
+			break;
+		}
+
+		ret = cpsw_ale_control_set(priv->ale, config.port,
+					   ALE_PORT_BCAST_LIMIT,
+					   config.bcast_rate_limit);
+		if (ret) {
+			dev_err(priv->dev, "CPSW_ALE control set failed");
+			break;
+		}
+
+		ret = cpsw_ale_control_set(priv->ale, config.port,
+					   ALE_PORT_MCAST_LIMIT,
+					   config.mcast_rate_limit);
+		if (ret)
+			dev_err(priv->dev, "CPSW_ALE control set failed");
+		break;
+	}
 
 	default:
 		ret = -EOPNOTSUPP;
@@ -1891,9 +2001,6 @@ static void cpsw_ndo_tx_timeout(struct net_device *ndev)
 	cpdma_chan_start(priv->txch);
 	cpdma_ctlr_int_ctrl(priv->dma, true);
 	cpsw_intr_enable(priv);
-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
-
 }
 
 static int cpsw_ndo_set_mac_address(struct net_device *ndev, void *p)
@@ -1933,9 +2040,6 @@ static void cpsw_ndo_poll_controller(struct net_device *ndev)
 	cpsw_interrupt(ndev->irq, priv);
 	cpdma_ctlr_int_ctrl(priv->dma, true);
 	cpsw_intr_enable(priv);
-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
-	cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_TX);
-
 }
 #endif
 
