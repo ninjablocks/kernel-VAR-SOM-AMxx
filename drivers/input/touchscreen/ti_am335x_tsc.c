@@ -35,8 +35,8 @@
 
 static const int config_pins[] = {
 	STEPCONFIG_XPP,
-	STEPCONFIG_XNN,
-	STEPCONFIG_YPP,
+	STEPCONFIG_YPN,
+	STEPCONFIG_XNP,
 	STEPCONFIG_YNN,
 };
 
@@ -176,6 +176,8 @@ static void titsc_step_config(struct titsc *ts_dev)
 	/* Make CHARGECONFIG same as IDLECONFIG */
 
 	config = titsc_readl(ts_dev, REG_IDLECONFIG);
+	config = (config & (~(STEPCHARGE_INM_AN1 | STEPCHARGE_INP(ts_dev->inp_yp)))) |
+			  (STEPCHARGE_INM_AN2 | STEPCHARGE_INP(ts_dev->inp_xn));
 	titsc_writel(ts_dev, REG_CHARGECONFIG, config);
 	titsc_writel(ts_dev, REG_CHARGEDELAY, CHARGEDLY_OPENDLY);
 
