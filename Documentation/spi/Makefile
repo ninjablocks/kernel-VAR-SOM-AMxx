@@ -1,6 +1,8 @@
 # kbuild trick to avoid linker error. Can be omitted if a module is built.
 obj- := dummy.o
 
+CC=arm-linux-gnueabihf-gcc
+
 # List of programs to build
 hostprogs-y := spidev_test spidev_fdx
 

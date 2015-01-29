@@ -73,7 +73,7 @@
 		regulator-always-on;
 		regulator-boot-on;
 		enable-active-high;
-	};		
+	};
 
 	gpio_buttons: gpio_buttons@0 {
 		compatible = "gpio-keys";
@@ -162,6 +162,12 @@
 		};
 	};
 
+	wlcore {
+		compatible = "wlcore";
+		gpio = <116>; /* Bank3, pin20 */
+		pinctrl-names = "default";
+	};
+
 	kim {
 		compatible = "kim";
 		nshutdown_gpio = <105>; /* Bank3, pin21 */
@@ -177,13 +183,7 @@
 
 &am33xx_pinmux {
 	pinctrl-names = "default";
-	pinctrl-0 = <&clkout1_pin &ddr3_vtt_toggle>;
-
-	ddr3_vtt_toggle: ddr3_vtt_toggle {
-		pinctrl-single,pins = <
-			0x164 0x7	/* ecap0_in_pwm0_out.gpio0_7, OUTPUT | MODE7 */
-		>;
-	};
+	pinctrl-0 = <&clkout1_pin>;
 
 	lcd_pins_default: lcd_pins_default {
 		pinctrl-single,pins = <
@@ -284,21 +284,13 @@
 		>;
 	};
 
-#if 0
-	clkout2_pin: pinmux_clkout2_pin {
-		pinctrl-single,pins = <
-			0x1b0 (PIN_OUTPUT_PULLDOWN | MUX_MODE3)	/* xdma_event_intr0.clkout1 */
-		>;
-	};
-#else
 	clkout1_pin: pinmux_clkout1_pin {
 		pinctrl-single,pins = <
 			0x1b0 (PIN_OUTPUT_PULLDOWN | MUX_MODE3)	/* xdma_event_intr0.clkout1 */
 		>;
 	};
-#endif//0
 
-	nandflash_pins_default: nandflash_pins_default {
+	nandflash_pins_default: pinmux_nandflash_pins_default {
 		pinctrl-single,pins = <
 			0x0 (PIN_INPUT_PULLUP | MUX_MODE0)	/* gpmc_ad0.gpmc_ad0 */
 			0x4 (PIN_INPUT_PULLUP | MUX_MODE0)	/* gpmc_ad1.gpmc_ad1 */
@@ -318,7 +310,7 @@
 		>;
 	};
 
-	nandflash_pins_sleep: nandflash_pins_sleep {
+	nandflash_pins_sleep: pinmux_nandflash_pins_sleep {
 		pinctrl-single,pins = <
 			0x0 (PIN_INPUT_PULLDOWN | MUX_MODE7)
 			0x4 (PIN_INPUT_PULLDOWN | MUX_MODE7)
@@ -522,6 +514,24 @@
 			0x120 (PIN_INPUT_PULLUP | MUX_MODE1)      /* AM33XX_CONTROL_PADCONF_MII1_TXD2_OFFSET			0x0920 */
 		>;
 	};
+
+	spi1_pins_default: pinmux_spi1_pins_default {
+		pinctrl-single,pins = <
+			0x164 (PIN_INPUT | MUX_MODE4)	/* ECAP0_IN_PWM0_OUT: SPI CLK */
+			0x168 (PIN_INPUT | MUX_MODE4)	/* UART0_CTSN: SPI1_D0 - We set to SPI1_RX*/
+			0x16C (PIN_OUTPUT | MUX_MODE4)	/* UART0_RTSN: SPI1_D1 - We set to SPI1_TX*/
+			0x19C (PIN_OUTPUT | MUX_MODE3)	/* MCASP0_AHCLKR: SPI1_CS */
+		>;
+	};
+
+	spi1_pins_sleep: pinmux_spi1_pins_sleep {
+		pinctrl-single,pins = <
+			0x164 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* ECAP0_IN_PWM0_OUT: SPI CLK */
+			0x168 (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* UART0_CTSN: SPI1_D0 - We set to SPI1_TX*/
+			0x16C (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* UART0_RTSN: SPI1_D1 - We set to SPI1_RX*/
+			0x19C (PIN_INPUT_PULLDOWN | MUX_MODE7)	/* MCASP0_AHCLKR: SPI1_CS */
+		>;
+	};
 };
 
 &uart0 {
@@ -687,9 +697,11 @@
 
 	ecap2: ecap@48304100 {
 		status = "okay";
+#if 0
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&ecap2_pins_default>;
 		pinctrl-1 = <&ecap2_pins_sleep>;
+#endif
 	};
 };
 
@@ -832,6 +844,7 @@
 	status = "okay";
 };
 
+
 &tps {
 	vcc1-supply = <&vbat>;
 	vcc2-supply = <&vbat>;
@@ -968,13 +981,6 @@
 };
 
 &mmc2 {
-#if 0 
-	/* these are on the crossbar and are outlined in the
-	   xbar-event-map element */	   
-	dmas = <&edma 12
-		&edma 13>;
-	dma-names = "tx", "rx";
-#endif
 	status = "okay";
 	vmmc-supply = <&wl12xx_vmmc>;
 	bus-width = <4>;
@@ -991,7 +997,6 @@
 	wlcore: wlcore@0 {
 		compatible = "ti,wlcore";
 		reg = <2>;
-
 		interrupt-parent = <&gpio3>;
 		interrupts = <20 IRQ_TYPE_NONE>;
 
@@ -1040,3 +1045,27 @@
 	};
 };
 
+&spi1 {
+	status = "okay";
+
+#if 0	/* NOTE: In order to use SPI on VAR-SOM-AM33 CustomBoard -
+	1) Need to remove R9 and R10 resistors from the CustomBoard.
+	2) Need to also remove U21 from the CustomBoard. */
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&spi1_pins_default>;
+	pinctrl-1 = <&spi1_pins_sleep>;
+#endif
+	spidev0: spi@0 {
+		compatible = "spidev";
+		reg = <0>;
+		spi-max-frequency = <16000000>;
+		spi-cpha;
+	};
+
+	spidev1: spi@1 {
+		compatible = "spidev";
+		reg = <1>;
+		spi-max-frequency = <16000000>;
+	};
+};
