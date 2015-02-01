@@ -523,7 +523,17 @@ static struct platform_driver wkup_m3_rproc_driver = {
 	},
 };
 
-module_platform_driver(wkup_m3_rproc_driver);
+static int __init wkup_m3_driver_drv_init(void)
+{
+       return platform_driver_register(&wkup_m3_rproc_driver);
+}
+late_initcall(wkup_m3_driver_drv_init);
+
+static void __exit wkup_m3_driver_drv_exit(void)
+{
+       platform_driver_unregister(&wkup_m3_rproc_driver);
+}
+module_exit(wkup_m3_driver_drv_exit);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("wkup m3 remote processor control driver");
