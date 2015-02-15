@@ -35,8 +35,8 @@
 
 static const int config_pins[] = {
 	STEPCONFIG_XPP,
-	STEPCONFIG_XNN,
-	STEPCONFIG_YPP,
+	STEPCONFIG_YPN,
+	STEPCONFIG_XNP,
 	STEPCONFIG_YNN,
 };
 
@@ -52,9 +52,6 @@ struct titsc {
 	u32			bit_xp, bit_xn, bit_yp, bit_yn;
 	u32			inp_xp, inp_xn, inp_yp, inp_yn;
 	u32			step_mask;
-	u32			charge_delay;
-	u32			prev_x, prev_y, prev_z;
-	bool			event_pending;
 };
 
 static unsigned int titsc_readl(struct titsc *ts, unsigned int reg)
@@ -179,8 +176,10 @@ static void titsc_step_config(struct titsc *ts_dev)
 	/* Make CHARGECONFIG same as IDLECONFIG */
 
 	config = titsc_readl(ts_dev, REG_IDLECONFIG);
+	config = (config & (~(STEPCHARGE_INM_AN1 | STEPCHARGE_INP(ts_dev->inp_yp)))) |
+			  (STEPCHARGE_INM_AN2 | STEPCHARGE_INP(ts_dev->inp_xn));
 	titsc_writel(ts_dev, REG_CHARGECONFIG, config);
-	titsc_writel(ts_dev, REG_CHARGEDELAY, ts_dev->charge_delay);
+	titsc_writel(ts_dev, REG_CHARGEDELAY, CHARGEDLY_OPENDLY);
 
 	/* coordinate_readouts + 1 ... coordinate_readouts + 2 is for Z */
 	config = STEPCONFIG_MODE_HWSYNC |
@@ -278,15 +277,6 @@ static irqreturn_t titsc_irq(int irq, void *dev)
 		input_report_abs(input_dev, ABS_PRESSURE, 0);
 		input_sync(input_dev);
 		irqclr |= IRQENB_PENUP;
-		ts_dev->event_pending = false;
-	}
-	else if (ts_dev->event_pending == true) {
-		input_report_abs(input_dev, ABS_X, ts_dev->prev_x);
-		input_report_abs(input_dev, ABS_Y, ts_dev->prev_y);
-		input_report_abs(input_dev, ABS_PRESSURE, ts_dev->prev_z);
-		input_report_key(input_dev, BTN_TOUCH, 1);
-		input_sync(input_dev);
-		ts_dev->event_pending = false;
 	}
 
 	if (status & IRQENB_EOS)
@@ -313,10 +303,11 @@ static irqreturn_t titsc_irq(int irq, void *dev)
 			z = (z + 2047) >> 12;
 
 			if (z <= MAX_12BIT) {
-				ts_dev->prev_x = x;
-				ts_dev->prev_y = y;
-				ts_dev->prev_z = z;
-				ts_dev->event_pending = true;
+				input_report_abs(input_dev, ABS_X, x);
+				input_report_abs(input_dev, ABS_Y, y);
+				input_report_abs(input_dev, ABS_PRESSURE, z);
+				input_report_key(input_dev, BTN_TOUCH, 1);
+				input_sync(input_dev);
 			}
 		}
 		irqclr |= IRQENB_FIFO0THRES;
@@ -367,17 +358,6 @@ static int titsc_parse_dt(struct platform_device *pdev,
 	if (err < 0)
 		return err;
 
-	err = of_property_read_u32(node, "ti,charge-delay",
-				   &ts_dev->charge_delay);
-	/*
-	 * If ti,charge-delay value is not specified, then use
-	 * CHARGEDLY_OPENDLY as the default value.
-	 */
-	if (err < 0) {
-		ts_dev->charge_delay = CHARGEDLY_OPENDLY;
-		dev_warn(&pdev->dev, "ti,charge-delay not specified\n");
-	}
-
 	return of_property_read_u32_array(node, "ti,wire-config",
 			ts_dev->config_inp, ARRAY_SIZE(ts_dev->config_inp));
 }
@@ -406,7 +386,6 @@ static int titsc_probe(struct platform_device *pdev)
 	ts_dev->mfd_tscadc = tscadc_dev;
 	ts_dev->input = input_dev;
 	ts_dev->irq = tscadc_dev->irq;
-	ts_dev->event_pending = false;
 
 	err = titsc_parse_dt(pdev, ts_dev);
 	if (err) {
@@ -483,7 +462,6 @@ static int titsc_suspend(struct device *dev)
 	struct ti_tscadc_dev *tscadc_dev;
 	unsigned int idle;
 
-	ts_dev->event_pending = false;
 	tscadc_dev = ti_tscadc_dev_get(to_platform_device(dev));
 	if (device_may_wakeup(tscadc_dev->dev)) {
 		idle = titsc_readl(ts_dev, REG_IRQENABLE);

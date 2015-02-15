@@ -769,12 +769,15 @@
 };
 
 &tscadc {
-        status = "okay";
-
-        adc {
-                ti,adc-channels = <0 1 2 3 4 5 6 7>;
-        };
+	status = "okay";
+	tsc {
+		ti,wires = <4>;
+		ti,x-plate-resistance = <200>;
+		ti,coordinate-readouts = <5>;
+		ti,wire-config = <0x00 0x11 0x22 0x33>;
+	};
 };
+
 &gpio0 {
 	status = "okay";
 };

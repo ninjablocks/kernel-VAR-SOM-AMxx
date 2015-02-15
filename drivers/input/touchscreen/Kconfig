@@ -585,6 +585,18 @@ config TOUCHSCREEN_TI_AM335X_TSC
 	  To compile this driver as a module, choose M here: the
 	  module will be called ti_am335x_tsc.
 
+config TOUCHSCREEN_TI_AM335X_TSC_VAR_SOM_AM33
+	tristate "TI Touchscreen Interface (VAR-SOM-AM33 modifications)"
+	depends on MFD_TI_AM335X_TSCADC_VAR_SOM_AM33
+	help
+	  Say Y here if you have 4/5/8 wire touchscreen controller
+	  to be connected to the ADC controller on your TI AM335x SoC.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ti_am335x_tsc.
+
 config TOUCHSCREEN_ATMEL_TSADCC
 	tristate "Atmel Touchscreen Interface"
 	depends on ARCH_AT91
