@@ -1035,9 +1035,10 @@
 	status = "okay";
 	tsc {
 		ti,wires = <4>;
-		ti,x-plate-resistance = <150>;
+		ti,x-plate-resistance = <180>;
 		ti,coordinate-readouts = <5>;
 		ti,wire-config = <0x00 0x21 0x12 0x33>;
+		ti,charge-delay = <0x700>;
 	};
 
 	adc {
