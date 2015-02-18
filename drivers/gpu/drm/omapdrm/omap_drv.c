@@ -784,7 +784,7 @@ static void __exit omap_drm_fini(void)
 }
 
 /* need late_initcall() so we load after dss_driver's are loaded */
-late_initcall(omap_drm_init);
+module_init(omap_drm_init);
 module_exit(omap_drm_fini);
 
 MODULE_AUTHOR("Rob Clark <rob@ti.com>");
