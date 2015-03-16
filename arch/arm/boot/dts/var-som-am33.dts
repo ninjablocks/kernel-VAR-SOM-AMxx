@@ -791,7 +791,7 @@
 		};
 		partition@9 {
 			label = "NAND.file-system";
-			reg = <0x00A00000 0x0F600000>;
+			reg = <0x00A00000 0x3F600000>;
 		};
 		partition@10 {
 			label = "Android NAND.u-boot";
