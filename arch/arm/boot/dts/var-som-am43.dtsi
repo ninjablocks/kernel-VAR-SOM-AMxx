@@ -840,7 +840,8 @@
 };
 
 &usb1 {
-	dr_mode = "otg";
+	//dr_mode = "otg";
+	dr_mode = "host";
 	status = "okay";
 };
 
