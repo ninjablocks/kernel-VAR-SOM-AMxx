@@ -815,27 +815,7 @@
 };
 
 &lcdc {
-#if 0	/* Already set by panel */
-	pinctrl-names = "default", "sleep";
-	pinctrl-0 = <&lcd_pins_default>;
-	pinctrl-1 = <&lcd_pins_sleep>;
-#endif
 	status = "okay";
-	display-timings {
-		800x480 {
-			clock-frequency = <30000000>;
-			hactive = <800>;
-			vactive = <480>;
-			hfront-porch = <39>;
-			hback-porch = <39>;
-			hsync-len = <47>;
-			vback-porch = <29>;
-			vfront-porch = <13>;
-			vsync-len = <2>;
-			hsync-active = <1>;
-			vsync-active = <1>;
-		};
-	};
 };
 
 #include "tps65910.dtsi"
